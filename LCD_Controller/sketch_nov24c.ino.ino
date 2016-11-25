@@ -96,6 +96,13 @@ unsigned char zero[] = {
   0x00
 };
 
+void scrollLeft(unsigned char *arr, unsigned rightMost) {
+  int i = 0;
+  for(i = 0; i < 8: i++) {
+    arr[i] = (unsigned char)(arr[i] << 1 | ((rightMost & (1 << (7 - i))) >> (7 - i)));
+  }
+}
+
 void loop() {
   // put your main code here, to run repeatedly:
   printLED(test1, 120);
