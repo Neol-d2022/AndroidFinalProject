@@ -36,6 +36,32 @@ void printLED(unsigned char *arr, int t) { // t = 1 for 8ms
   clearLED();
 }
 
+/**
+ * Map
+ */
+
+void copyMap(const unsigned char *src, unsigned char *dst) {
+  int i = 0;
+  for(i = 0; i < 8; i++) { dst[i] = src[i]; }
+}
+
+void orMap(const unsigned char *src, unsigned char *dst) {
+  int i = 0;
+  for(i = 0; i < 8; i++) { dst[i] |= src[i]; }
+}
+
+void clearMap(unsigned char *m) {
+  int i = 0;
+  for(i = 0; i < 8; i++) { m[i] = 0; }
+}
+
+unsigned char currentMap[8];
+unsigned char player[8];
+unsigned char air[8];
+unsigned char finalMap[8];
+
+unsigned char mapInit[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF};
+
 void setup() {
   // put your setup code here, to run once:
   for(int i = 0; i < 8; i++) {
@@ -43,62 +69,12 @@ void setup() {
     pinMode(Vpins[i], OUTPUT);
   }
   srand(time(0));
+  
+  copyMap(mapInit, currentMap);
+  clearMap(player);
+  clearMap(air);
+  clearMap(finalMap);
 }
-
-unsigned char test1[] = {
-  0xC3,
-  0xC3,
-  0xC3,
-  0xFF,
-  0xFF,
-  0xC3,
-  0xC3,
-  0xC3
-};
-
-unsigned char test2[] = {
-  0x7E,
-  0x7E,
-  0x40,
-  0x7E,
-  0x7E,
-  0x40,
-  0x7E,
-  0x7E
-};
-
-unsigned char test3[] = {
-  0x60,
-  0x60,
-  0x60,
-  0x60,
-  0x60,
-  0x60,
-  0x7E,
-  0x7E
-};
-
-unsigned char test4[] = {
-  0xFF,
-  0xFF,
-  0xC3,
-  0xC3,
-  0xC3,
-  0xC3,
-  0xFF,
-  0xFF
-};
-
-unsigned char zero[] = {
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0x00
-};
 
 void scrollLeft(unsigned char *arr, unsigned rightMost) {
   int i = 0;
@@ -113,49 +89,23 @@ void nextScrollMap(unsigned char *m) {
   unsigned char generatedHeight;
 
   i = 0;
-  for(i = 0; i < 8; i++) {
+  for(i = 0; i < 8; i++)
     currentHeight |= ((m[i] & 0x01) << (7 - i));
-  }
 
   r = rand();
-  if(r & 0x00000002) {
+  if(r & 0x00000002)
     generatedHeight = currentHeight;
-  }
-  else if(r & 0x00000001) {
-    if(currentHeight >= (1 << (MAX_MAP_HEIGHT - 1))) {
-      generatedHeight = currentHeight;
-    }
-    else {
-      generatedHeight = (currentHeight << 1) | currentHeight;
-    }
-  }
-  else {
-    if(currentHeight <= 1) {
-      generatedHeight = currentHeight;
-    }
-    else {
-      generatedHeight = (currentHeight >> 1);
-    }
-  }
+  else if(currentHeight >= (1 << (MAX_MAP_HEIGHT - 1)) || currentHeight <= 1)
+    generatedHeight = currentHeight;
+  else if(r & 0x00000001)
+    generatedHeight = (currentHeight << 1) | currentHeight;
+  else
+    generatedHeight = (currentHeight >> 1);
 
   scrollLeft(m, generatedHeight);
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-  printLED(test1, 120);
-  printLED(zero, 5);
-  printLED(test2, 120);
-  printLED(zero, 5);
-  printLED(test3, 120);
-  printLED(zero, 5);
-  printLED(test3, 120);
-  printLED(zero, 5);
-  printLED(test4, 120);
-  printLED(zero, 5);
-
-  /*for(int i = 0; i < 8; i++) {
-    digitalWrite(Vpins[i], HIGH);
-    digitalWrite(Hpins[i], LOW);
-  }*/
+  
 }
