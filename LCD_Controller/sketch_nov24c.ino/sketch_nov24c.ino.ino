@@ -1,3 +1,7 @@
+#include <time.h>
+
+#define MAX_MAP_HEIGHT 6
+
 const int Hpins[] = { 2,  3,  4,  5,  6,  7,  8,  9}; //-
 const int Vpins[] = {10, 11, 12, 13, A0, A1, A2, A3}; //+
 
@@ -38,7 +42,7 @@ void setup() {
     pinMode(Hpins[i], OUTPUT);
     pinMode(Vpins[i], OUTPUT);
   }
-  
+  srand(time(0));
 }
 
 unsigned char test1[] = {
@@ -101,6 +105,40 @@ void scrollLeft(unsigned char *arr, unsigned rightMost) {
   for(i = 0; i < 8; i++) {
     arr[i] = (unsigned char)(arr[i] << 1 | ((rightMost & (1 << (7 - i))) >> (7 - i)));
   }
+}
+
+void nextScrollMap(unsigned char *m) {
+  int r, i;
+  unsigned char currentHeight = 0;
+  unsigned char generatedHeight;
+
+  i = 0;
+  for(i = 0; i < 8; i++) {
+    currentHeight |= ((m[i] & 0x01) << (7 - i));
+  }
+
+  r = rand();
+  if(r & 0x00000002) {
+    generatedHeight = currentHeight;
+  }
+  else if(r & 0x00000001) {
+    if(currentHeight >= (1 << (MAX_MAP_HEIGHT - 1))) {
+      generatedHeight = currentHeight;
+    }
+    else {
+      generatedHeight = (currentHeight << 1) | currentHeight;
+    }
+  }
+  else {
+    if(currentHeight <= 1) {
+      generatedHeight = currentHeight;
+    }
+    else {
+      generatedHeight = (currentHeight >> 1);
+    }
+  }
+
+  scrollLeft(m, generatedHeight);
 }
 
 void loop() {
