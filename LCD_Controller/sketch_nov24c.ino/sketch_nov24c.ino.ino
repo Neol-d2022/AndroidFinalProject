@@ -98,7 +98,7 @@ unsigned char zero[] = {
 
 void scrollLeft(unsigned char *arr, unsigned rightMost) {
   int i = 0;
-  for(i = 0; i < 8: i++) {
+  for(i = 0; i < 8; i++) {
     arr[i] = (unsigned char)(arr[i] << 1 | ((rightMost & (1 << (7 - i))) >> (7 - i)));
   }
 }
