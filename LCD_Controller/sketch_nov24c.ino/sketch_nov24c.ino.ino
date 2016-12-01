@@ -2,6 +2,14 @@
 
 #define MAX_MAP_HEIGHT 6
 
+#define FD_MAX  80          //frame delay ( .64  s)
+#define FD_MIN  2           //frame delay ( .016 s)
+#define FD_STEP 3           //
+#define FD_LEVEL_TIME 250   //            (5.0   s)
+#define FD_LEVEL_TIME_INC 50  //          ( .4   s)
+
+#define MAX_JUMP_HEIGHT 2
+
 const int Hpins[] = { 2,  3,  4,  5,  6,  7,  8,  9}; //-
 const int Vpins[] = {10, 11, 12, 13, A0, A1, A2, A3}; //+
 
@@ -16,7 +24,7 @@ void clearLED() {
   }
 }
 
-void printLED(unsigned char *arr, int t) { // t = 1 for 8ms
+void printLED(const unsigned char *arr, int t) { // t = 1 for 8ms
   int i, j, k;
   unsigned char v, l;
   for(k = 0; k < t; k++) {
@@ -60,7 +68,8 @@ unsigned char player[8];
 unsigned char air[8];
 unsigned char finalMap[8];
 
-unsigned char mapInit[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF};
+const unsigned char mapInit[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF};
+const unsigned char zero[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 void setup() {
   // put your setup code here, to run once:
@@ -68,12 +77,14 @@ void setup() {
     pinMode(Hpins[i], OUTPUT);
     pinMode(Vpins[i], OUTPUT);
   }
-  srand(time(0));
+  srand(1612);
   
   copyMap(mapInit, currentMap);
   clearMap(player);
   clearMap(air);
   clearMap(finalMap);
+
+  Serial.begin(9600);
 }
 
 void scrollLeft(unsigned char *arr, unsigned rightMost) {
@@ -93,19 +104,167 @@ void nextScrollMap(unsigned char *m) {
     currentHeight |= ((m[i] & 0x01) << (7 - i));
 
   r = rand();
-  if(r & 0x00000002)
+  if(r & 0x0002)
     generatedHeight = currentHeight;
-  else if(currentHeight >= (1 << (MAX_MAP_HEIGHT - 1)) || currentHeight <= 1)
-    generatedHeight = currentHeight;
-  else if(r & 0x00000001)
-    generatedHeight = (currentHeight << 1) | currentHeight;
+  else if(currentHeight >= (1 << (MAX_MAP_HEIGHT - 1))) {
+    if(r & 0x0001)
+      generatedHeight = currentHeight;
+    else
+      generatedHeight = (currentHeight >> 1);
+  }
+  else if(currentHeight <= 1) {
+    if(r & 0x0001)
+      generatedHeight = (currentHeight << 1) | currentHeight;
+    else
+      generatedHeight = currentHeight;
+  }
+  else if(r & 0x0001) {
+    if(r & 0x0004 && (((currentHeight << 1) | 0x0001) >= (1 << (MAX_MAP_HEIGHT - 1)))) {
+      currentHeight = (currentHeight << 1) | currentHeight;
+      generatedHeight = (currentHeight << 1) | currentHeight;
+    }
+    else
+      generatedHeight = (currentHeight << 1) | currentHeight;
+  }
+    
   else
     generatedHeight = (currentHeight >> 1);
 
   scrollLeft(m, generatedHeight);
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
+unsigned int score = 0;
+unsigned int currentLevel = 0;
+unsigned int currentLevelCount = 0;
+unsigned int nextLevelTime = FD_LEVEL_TIME;
+unsigned int frameDelay(unsigned int score) {
+  unsigned int currentLevelTime = currentLevelCount * (FD_MAX - currentLevel);
+
+  if(currentLevel == FD_MAX - FD_MIN) return FD_MIN;
   
+  if(currentLevelTime > nextLevelTime) {
+    currentLevelCount = 0;
+    if(currentLevel + FD_STEP > FD_MAX - FD_MIN)
+      currentLevel = FD_MAX - FD_MIN;
+    else
+      currentLevel += FD_STEP;
+    nextLevelTime += FD_LEVEL_TIME_INC;
+  }
+  
+  return FD_MAX - currentLevel;
+}
+
+bool jumpKey;
+void getUserInput() {
+  int c;
+  unsigned int i = 0;
+  jumpKey = false;
+  
+  while(Serial.available()) {
+    c = Serial.read();
+    switch(c) {
+      case 'J': //Jump
+        jumpKey = true;
+        break;
+      default:  //Not known
+        break;
+    }
+  }
+}
+
+void drawPlayer(unsigned char *p, unsigned int h) {
+  clearMap(p);
+
+  if(h <= 7)
+    p[7 - h] = 64;
+  if(h <= 6)
+    p[6 - h] = 64;
+}
+
+unsigned int playerCurrentHeight = 2;
+void gameOver() {
+  while(true) {
+    printLED(currentMap, FD_MAX);
+    printLED(zero, FD_MAX);
+    drawPlayer(player, playerCurrentHeight);
+    printLED(player, FD_MAX);
+    printLED(zero, FD_MAX);
+
+    Serial.write('G');
+    Serial.write(0);
+  }
+}
+
+bool go = false;
+bool jumping = false;
+unsigned int jumpStat = 0;
+void loop() {
+  unsigned int fd = frameDelay(score);
+  unsigned char playerGroundHeight = 0;
+
+  if(go) {
+    gameOver();
+    return;
+  }
+
+  for(int i = 0; i < 8; i++)
+    playerGroundHeight |= (((currentMap[i] & 0x40) >> 6) << (7 - i));
+  for(int i = 0; i < 8; i++)
+    if(playerGroundHeight & (1 << (7 - i))) {
+      playerGroundHeight = 8 - i;
+      break;
+    }
+
+  if(playerCurrentHeight == playerGroundHeight && jumpStat == 0) {
+    jumping = false;
+  }
+
+  if(playerCurrentHeight != playerGroundHeight && !jumping) {
+    if(playerCurrentHeight < playerGroundHeight) {
+      go = true;
+      return;
+    }
+    else {
+      jumping = true;
+      jumpStat = 0;
+    }
+  }
+
+  if(jumping) {
+    if(jumpStat > 0) {
+      jumpStat -= 1;
+      playerCurrentHeight += 1;
+    }
+    else {
+      playerCurrentHeight -= 1;
+    }
+    
+    if(playerCurrentHeight == playerGroundHeight) {
+      jumping = false;
+    }
+    else if(playerCurrentHeight < playerGroundHeight) {
+      go = true;
+      return;
+    }
+  }
+
+  printLED(currentMap, fd >> 1); fd -= (fd >> 1);
+  drawPlayer(player, playerCurrentHeight);
+  copyMap(currentMap, finalMap);
+  orMap(player, finalMap);
+  printLED(finalMap, fd);
+  nextScrollMap(currentMap);
+
+  getUserInput();
+  if(jumpKey && !jumping) {
+    jumping = true;
+    jumpStat = 2;
+  }
+
+  score += 1;
+  Serial.write('S');
+  Serial.write(2);
+  Serial.write(score >> 8);
+  Serial.write(score & 0xFF);
+  currentLevelCount += 1;
 }
