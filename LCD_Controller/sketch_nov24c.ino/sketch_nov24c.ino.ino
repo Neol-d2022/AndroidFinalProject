@@ -1,5 +1,3 @@
-#include <time.h>
-
 #define MAX_MAP_HEIGHT 6
 
 #define FD_MAX  80          //frame delay ( .64  s)
@@ -70,6 +68,10 @@ unsigned char finalMap[8];
 
 const unsigned char mapInit[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF};
 const unsigned char zero[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+const unsigned char intro[][8] = {
+  {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA},
+  {0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55}
+};
 
 void setup() {
   // put your setup code here, to run once:
@@ -77,7 +79,6 @@ void setup() {
     pinMode(Hpins[i], OUTPUT);
     pinMode(Vpins[i], OUTPUT);
   }
-  srand(1612);
   
   copyMap(mapInit, currentMap);
   clearMap(player);
@@ -87,6 +88,9 @@ void setup() {
   Serial.begin(9600);
 }
 
+// [rightMost]
+// bit    7 6 5 4 3 2 1 0
+// height +             -
 void scrollLeft(unsigned char *arr, unsigned rightMost) {
   int i = 0;
   for(i = 0; i < 8; i++) {
@@ -103,7 +107,7 @@ void nextScrollMap(unsigned char *m) {
   for(i = 0; i < 8; i++)
     currentHeight |= ((m[i] & 0x01) << (7 - i));
 
-  r = rand();
+  r = analogRead(A4) + analogRead(A5);
   if(r & 0x0002)
     generatedHeight = currentHeight;
   else if(currentHeight >= (1 << (MAX_MAP_HEIGHT - 1))) {
@@ -183,31 +187,25 @@ void drawPlayer(unsigned char *p, unsigned int h) {
 
 unsigned int playerCurrentHeight = 2;
 void gameOver() {
-  while(true) {
-    printLED(currentMap, FD_MAX);
-    printLED(zero, FD_MAX);
-    drawPlayer(player, playerCurrentHeight);
-    printLED(player, FD_MAX);
-    printLED(zero, FD_MAX);
-
-    Serial.write('G');
-    Serial.write(0);
-  }
+  printLED(currentMap, FD_MAX);
+  printLED(zero, FD_MAX);
+  drawPlayer(player, playerCurrentHeight);
+  printLED(player, FD_MAX);
+  printLED(zero, FD_MAX);
+  
+  Serial.write('G');
+  Serial.write(0);
 }
 
 bool go = false;
 bool jumping = false;
 unsigned int jumpStat = 0;
-void loop() {
+void doGame() {
   unsigned int fd = frameDelay(score);
   unsigned char playerGroundHeight = 0;
 
-  if(go) {
-    gameOver();
-    return;
-  }
-
-  for(int i = 0; i < 8; i++)
+  //Get Ground Height
+  for(int i = 0; i < 8; i++) 
     playerGroundHeight |= (((currentMap[i] & 0x40) >> 6) << (7 - i));
   for(int i = 0; i < 8; i++)
     if(playerGroundHeight & (1 << (7 - i))) {
@@ -215,22 +213,20 @@ void loop() {
       break;
     }
 
-  if(playerCurrentHeight == playerGroundHeight && jumpStat == 0) {
+  //Check if player was prevously jumping and touch the ground now
+  if(playerCurrentHeight == playerGroundHeight && (jumping && jumpStat == 0)) {
     jumping = false;
   }
 
+  //Check if player should do free fall
   if(playerCurrentHeight != playerGroundHeight && !jumping) {
-    if(playerCurrentHeight < playerGroundHeight) {
-      go = true;
-      return;
-    }
-    else {
-      jumping = true;
-      jumpStat = 0;
-    }
+    jumping = true;
+    jumpStat = 0;
   }
 
+  //Player is in the air
   if(jumping) {
+    //Check if player should go up
     if(jumpStat > 0) {
       jumpStat -= 1;
       playerCurrentHeight += 1;
@@ -239,20 +235,24 @@ void loop() {
       playerCurrentHeight -= 1;
     }
     
-    if(playerCurrentHeight == playerGroundHeight) {
-      jumping = false;
-    }
-    else if(playerCurrentHeight < playerGroundHeight) {
+    if(playerCurrentHeight < playerGroundHeight) {
+      //Hit the terrian, game over
       go = true;
       return;
     }
   }
 
-  printLED(currentMap, fd >> 1); fd -= (fd >> 1);
+  //Print the map
+  printLED(currentMap, fd >> 1);
+  fd -= (fd >> 1);
+
+  //Flash the player
   drawPlayer(player, playerCurrentHeight);
   copyMap(currentMap, finalMap);
   orMap(player, finalMap);
   printLED(finalMap, fd);
+
+  //Generate New Map
   nextScrollMap(currentMap);
 
   getUserInput();
@@ -267,4 +267,25 @@ void loop() {
   Serial.write(score >> 8);
   Serial.write(score & 0xFF);
   currentLevelCount += 1;
+}
+
+bool gameStart = false;
+void loop() {
+  if(!gameStart) {
+    getUserInput();
+    if(jumpKey) {
+      gameStart = true;
+      return;
+    }
+    for(int i = 0; i < 2; i++) {
+      printLED(intro[i], 125);
+    }
+  }
+  else if(go) {
+    gameOver();
+    return;
+  }
+  else {
+    doGame();
+  }
 }
