@@ -1,10 +1,10 @@
 #define MAX_MAP_HEIGHT 6
 
-#define FD_MAX  80          //frame delay ( .64  s)
+#define FD_MAX  40          //frame delay ( .32  s)
 #define FD_MIN  2           //frame delay ( .016 s)
 #define FD_STEP 3           //
-#define FD_LEVEL_TIME 250   //            (5.0   s)
-#define FD_LEVEL_TIME_INC 50  //          ( .4   s)
+#define FD_LEVEL_TIME 500   //            (10.0   s)
+#define FD_LEVEL_TIME_INC 250  //         ( 1.0   s)
 
 #define MAX_JUMP_HEIGHT 2
 
@@ -69,8 +69,8 @@ unsigned char finalMap[8];
 const unsigned char mapInit[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF};
 const unsigned char zero[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 const unsigned char intro[][8] = {
-  {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA},
-  {0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55}
+  {0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55},
+  {0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA}
 };
 
 void setup() {
@@ -98,6 +98,7 @@ void scrollLeft(unsigned char *arr, unsigned rightMost) {
   }
 }
 
+unsigned char lastHeight = 2;
 void nextScrollMap(unsigned char *m) {
   int r, i;
   unsigned char currentHeight = 0;
@@ -123,7 +124,7 @@ void nextScrollMap(unsigned char *m) {
       generatedHeight = currentHeight;
   }
   else if(r & 0x0001) {
-    if(r & 0x0004 && (((currentHeight << 1) | 0x0001) >= (1 << (MAX_MAP_HEIGHT - 1)))) {
+    if((r & 0x0004 && (((currentHeight << 1) | 0x0001) >= (1 << (MAX_MAP_HEIGHT - 1)))) && (lastHeight >= currentHeight)) {
       currentHeight = (currentHeight << 1) | currentHeight;
       generatedHeight = (currentHeight << 1) | currentHeight;
     }
@@ -135,6 +136,7 @@ void nextScrollMap(unsigned char *m) {
     generatedHeight = (currentHeight >> 1);
 
   scrollLeft(m, generatedHeight);
+  lastHeight = currentHeight;
 }
 
 unsigned int score = 0;
@@ -194,7 +196,9 @@ void gameOver() {
   printLED(zero, FD_MAX);
   
   Serial.write('G');
-  Serial.write(0);
+  Serial.write(2);
+  Serial.write(score >> 8);
+  Serial.write(score & 0xFF);
 }
 
 bool go = false;
@@ -231,14 +235,13 @@ void doGame() {
       jumpStat -= 1;
       playerCurrentHeight += 1;
     }
-    else {
-      playerCurrentHeight -= 1;
-    }
-    
-    if(playerCurrentHeight < playerGroundHeight) {
+    else if(playerCurrentHeight < playerGroundHeight) {
       //Hit the terrian, game over
       go = true;
       return;
+    }
+    else {
+      playerCurrentHeight -= 1;
     }
   }
 
@@ -277,6 +280,9 @@ void loop() {
       gameStart = true;
       return;
     }
+    
+    Serial.write('P');
+    Serial.write(0);
     for(int i = 0; i < 2; i++) {
       printLED(intro[i], 125);
     }
