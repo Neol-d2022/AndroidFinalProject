@@ -1,10 +1,11 @@
 #include <LiquidCrystal.h>
 LiquidCrystal lcd(12, 11,  5,  4,  3,  2);
 
+int BUZZER = 8;
 void setup() {
   // put your setup code here, to run once:
   lcd.begin(16, 2);
-  pinMode(13, OUTPUT);
+  pinMode(BUZZER, OUTPUT);
   Serial.begin(9600);
 }
 
@@ -50,6 +51,7 @@ void loop() {
           lcd.setCursor(0, 1);
           lcd.print("Game Over");
         }
+        
         break;
       case 'P': //Prestart
         while(!Serial.available());
