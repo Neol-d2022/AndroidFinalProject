@@ -1,6 +1,6 @@
 #define MAX_MAP_HEIGHT 6
 
-#define FD_MAX  40          //frame delay ( .32  s)
+#define FD_MAX  30          //frame delay ( .24  s)
 #define FD_MIN  2           //frame delay ( .016 s)
 #define FD_STEP 3           //
 #define FD_LEVEL_TIME 500   //            (10.0   s)
