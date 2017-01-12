@@ -1,6 +1,6 @@
 # ArduinoFinalProject
 105-1 Arduino
-
+![](./img/P_20170112_150451.jpg)
 # About this project
 Game name : Arduino Jump
  - A DAMN good Game made with arduino.
