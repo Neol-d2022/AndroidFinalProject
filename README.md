@@ -25,4 +25,4 @@ Game name : Arduino Jump
 10. Enthusiasm and Curiosity
 
 # Circuit diagram
-![](circuit.PNG)
+![](circuit_Kuang.jpg)
